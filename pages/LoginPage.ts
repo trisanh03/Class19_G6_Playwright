@@ -1,6 +1,6 @@
 import { Locator, Page } from "@playwright/test";
 import { CommonPage } from "./CommonPage";
-
+import { Logger } from "winston";
 export class LoginPage extends CommonPage {
     urlPath: string = '/sign-in';
     
@@ -8,8 +8,8 @@ export class LoginPage extends CommonPage {
     readonly passwordInput: Locator;
     readonly loginButton: Locator;
 
-    constructor(page: Page) {
-        super(page);
+      constructor(page: Page, logger: Logger) {
+        super(page, logger);
         this.accountInput = page.locator('#taiKhoan');
         this.passwordInput = page.locator('#matKhau');
         this.loginButton = page.locator('//button[span[text()="Đăng nhập"]]');      

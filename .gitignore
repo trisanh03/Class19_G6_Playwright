@@ -1,9 +1,12 @@
-
-# Playwright
-node_modules/
+# Playwright generated files
 /test-results/
 /playwright-report/
-/blob-report/
+/report/
 /playwright/.cache/
-/playwright/.auth/
-.DS_Store
+
+# Winston logs
+/logs/
+
+# Allure generated files 
+/allure-results/
+/allure-report/

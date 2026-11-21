@@ -1,36 +1,91 @@
-import { test as base } from '@playwright/test';
-import { RegisterPage } from '../pages/RegisterPage';
-import { LoginPage } from '../pages/LoginPage';
-import { CommonDialog } from '../pages/dialogs/CommonDialog';
+import { test as base } from "@playwright/test";
+import type { Logger } from "winston";
+import fs from "fs";
+import { createTestLogger } from "../utils/logger";
+import { RegisterPage } from "../pages/RegisterPage";
+import { LoginPage } from "../pages/LoginPage";
+import { CommonDialog } from "../dialogs/CommonDialog";
 
-
-// Declare the types of your fixtures.
 type MyFixtures = {
+  logger: Logger;
   registerPage: RegisterPage;
   loginPage: LoginPage;
   commonDialog: CommonDialog;
 };
 
-// Extend base test by providing "todoPage" and "settingsPage".
-// This new "test" can be used in multiple test files, and each of them will get the fixtures.
 export const test = base.extend<MyFixtures>({
-  registerPage: async ({ page }, use) => {
-    // Set up the fixture.
-    const registerPage = new RegisterPage(page);
+  logger: async ({ page }, use, testInfo) => {
+    const { logger, logFile } = createTestLogger(testInfo);
 
-    // Use the fixture value in the test.
-    await use(registerPage);
+    try {
+      logger.info(`TEST STARTED: ${testInfo.title}`);
+      logger.info(
+        `Test ID: ${testInfo.testId} | Worker: ${testInfo.workerIndex}`,
+      );
 
-    // Clean up the fixture.
-    //...
+      await use(logger);
+    } finally {
+      const failed =
+        testInfo.status === "failed" || testInfo.status === "timedOut";
+
+      logger.info(`TEST STATUS: ${testInfo.status}`);
+      logger.info(`Test duration: ${testInfo.duration} ms`);
+
+      for (const error of testInfo.errors) {
+        logger.error(error.stack || error.message);
+      }
+
+      
+      if (failed && !page.isClosed()) {
+        try {
+          const screenshot = await page.screenshot({
+            fullPage: true,
+          });
+
+          await testInfo.attach("Failure Screenshot", {
+            body: screenshot,
+            contentType: "image/png",
+          });
+
+          logger.info("Failure screenshot attached to Allure");
+        } catch (error) {
+          logger.error(
+            `Failed to capture screenshot: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+
+      logger.info("TEST FINISHED");
+
+     
+      await new Promise<void>((resolve, reject) => {
+        logger.once("finish", resolve);
+        logger.once("error", reject);
+        logger.end();
+      });
+
+      if (fs.existsSync(logFile)) {
+        await testInfo.attach("Winston Log", {
+          path: logFile,
+          contentType: "text/plain",
+        });
+      }
+    }
   },
 
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
+  registerPage: async ({ page, logger }, use) => {
+    await use(new RegisterPage(page, logger));
   },
 
-  commonDialog: async ({ page }, use) => {
-    await use(new CommonDialog(page));
-  }
+  loginPage: async ({ page, logger }, use) => {
+    await use(new LoginPage(page, logger));
+  },
+
+  commonDialog: async ({ page, logger }, use) => {
+    await use(new CommonDialog(page, logger));
+  },
 });
-export { expect } from '@playwright/test';
+
+export { expect } from "@playwright/test";
